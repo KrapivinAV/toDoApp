@@ -58,7 +58,7 @@ const Settings = require('../sdk/templates/common/settings');
 const login = 'demo'; // User login
 const api_key = '1526fec01b5d11f4df4f2160627ce351'; // API key, which can be obtained / changed in the "Settings" section
 const terminalId = '9ad01d262144a13cda1e90593bf64479'; // Terminal ID in which the payment will be created
-const orderId = 987987987;
+const orderId = 987987987; // Order ID
 const items = [
   {
     name: 'Машинка', // Subject of the order
@@ -98,7 +98,7 @@ const onPay = async () => {
     const settings = new Settings(terminalId, 'card', successUrl, failUrl);
     const createPayment = new CreatePayment(order, settings, receipt, customer);
 
-    paymentInfo = await restClient.createPayment(createPayment);
+    const paymentInfo = await restClient.createPayment(createPayment);
 
     return paymentInfo;
   } catch (err) {
@@ -116,4 +116,75 @@ if (paymentInfo.data.id) {
   console.log('Ошибка платежа ' + paymentInfo.data.description);
 }
 ```
+
 ### Оформление возврата средств
+
+```javascript
+const RestClient = require('../sdk/rest-client');
+const GetPaymentByOrder = require('../sdk/templates/get-payment-by-order');
+const CreateRefund = require('../sdk/templates/create-refund');
+const RefundInfo = require('../sdk/templates/common/refund-info');
+
+const login = 'demo'; // User login
+const api_key = '1526fec01b5d11f4df4f2160627ce351'; // API key, which can be obtained / changed in the "Settings" section
+const paymentId = '126d4c806ef04b10f822541f1a5b41d9'; // Payment ID
+const orderId = 987987987; // Order ID
+const items = [
+  {
+    name: 'Машинка', // Subject of the order
+    price: 100, // Price for 1 unit
+    count: 2, // Quantity
+    fullPrice: 200, // Total price
+  },
+  {
+    name: 'Робот', // Subject of the order
+    price: 199, // Price for 1 unit
+    count: 1, // Quantity
+    fullPrice: 199, // Total price
+  },
+];
+const reason = 'Передумал'; // Reason for refund
+
+const restClient = new RestClient(login, apiKey); // Create a rest client instance
+
+const onRefund = async () => {
+  try {
+    const order = await restClient.getPaymentByOrder(
+      new GetPaymentByOrder(orderId),
+    );
+
+    // Check the existence of this payment
+
+    if (!order || order.error) {
+      return false;
+    }
+
+    // Create refund
+
+    let amount = 0; // The total amount of the order
+    let receipt = []; // Array with order items
+
+    items.forEach((item) => {
+      receipt.push(new Item(item.name, item.price, item.count, item.fullPrice));
+      amount += item.fullPrice;
+    });
+
+    const refundInfo = new RefundInfo(amount, reason, currency);
+    const createRefund = new CreateRefund(order.data.id, refundInfo, receipt);
+
+    const refundInfo = await restClient.createRefund(createRefund);
+
+    return Boolean(refundInfo.data.status === 'successful');
+  } catch (err) {
+    return Promise.reject(err);
+  }
+};
+
+const refundInfo = onPay();
+
+if (refundInfo) {
+  console.log('Возврат оформлен');
+} else {
+  console.log('Ошибка возврата ' + refundInfo.data.description);
+}
+```
