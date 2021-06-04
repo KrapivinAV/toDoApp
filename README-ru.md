@@ -13,26 +13,18 @@ const RestClient = require('sdk/rest-client');
 const CreateTerminal = require('sdk/templates/create-terminal');
 const GetTerminal = require('sdk/templates/get-terminal');
 
-const login = "demo"; //Логин от lk.invoice.su
-const api_key = "1526fec01b5d11f4df4f2160627ce351"; // API ключ
+const login = 'demo'; // User login
+const api_key = '1526fec01b5d11f4df4f2160627ce351'; // API key, which can be obtained / changed in the "Settings" section
 
 const shop = {
   id: '28b839d026189922', // Store id in the system
   name: 'Магазин игрушек', // Store name in the system
 };
 
-/*
- * Create a rest client instance
- *
- * login - User login
- * apiKey - API key, which can be obtained / changed in the "Settings" section
- */
-
-const restClient = new RestClient(login, apiKey);
+const restClient = new RestClient(login, apiKey); // Create a rest client instance
 
 const setTerminalInfo = async (shop, restClient) => {
   try {
-
     // Check the existence of this terminal
 
     const terminal = new GetTerminal(shop.id);
@@ -45,7 +37,6 @@ const setTerminalInfo = async (shop, restClient) => {
     // Create terminal
 
     const newTerminal = new CreateTerminal(shop.name, shop.id);
-    newTerminal.setDescription('Онлайн оплата');
     const newTerminalInfo = await restClient.createTerminal(newTerminal);
 
     return newTerminalInfo;
@@ -54,3 +45,75 @@ const setTerminalInfo = async (shop, restClient) => {
   }
 };
 ```
+
+### Создание платежа
+
+```javascript
+const RestClient = require('../sdk/rest-client');
+const CreatePayment = require('../sdk/templates/create-payment');
+const Item = require('../sdk/templates/common/item');
+const Order = require('../sdk/templates/common/order');
+const Settings = require('../sdk/templates/common/settings');
+
+const login = 'demo'; // User login
+const api_key = '1526fec01b5d11f4df4f2160627ce351'; // API key, which can be obtained / changed in the "Settings" section
+const terminalId = '9ad01d262144a13cda1e90593bf64479'; // Terminal ID in which the payment will be created
+const orderId = 987987987;
+const items = [
+  {
+    name: 'Машинка', // Subject of the order
+    price: 100, // Price for 1 unit
+    count: 2, // Quantity
+    fullPrice: 200, // Total price
+  },
+  {
+    name: 'Робот', // Subject of the order
+    price: 199, // Price for 1 unit
+    count: 1, // Quantity
+    fullPrice: 199, // Total price
+  },
+];
+const customer = {
+  name: 'Иван', // Customer name
+  phone: '79991234567', // Customer phone number
+  email: 'em@invoice.su', // Customer E-mail
+};
+const currency = 'RUB'; // Order currency
+const successUrl = 'https://example.com/success.html'; // The link to which the user will be redirected in case of successful payment
+const failUrl = 'https://example.com/fail.html'; // The link to which the user will be redirected in case of unsuccessful payment
+
+const restClient = new RestClient(login, apiKey); // Create a rest client instance
+
+const onPay = async () => {
+  try {
+    let amount = 0; // The total amount of the order
+    let receipt = []; // Array with order items
+
+    items.forEach((item) => {
+      receipt.push(new Item(item.name, item.price, item.count, item.fullPrice));
+      amount += item.fullPrice;
+    });
+
+    const order = new Order(amount, currency, 'Заказ №' + orderId, orderId);
+    const settings = new Settings(terminalId, 'card', successUrl, failUrl);
+    const createPayment = new CreatePayment(order, settings, receipt, customer);
+
+    paymentInfo = await restClient.createPayment(createPayment);
+
+    return paymentInfo;
+  } catch (err) {
+    return Promise.reject(err);
+  }
+};
+
+const paymentInfo = onPay();
+
+if (paymentInfo.data.id) {
+  console.log(
+    'Платеж оформлен: https://pay.invoice.su/P' + paymentInfo.data.id,
+  );
+} else {
+  console.log('Ошибка платежа ' + paymentInfo.data.description);
+}
+```
+### Оформление возврата средств
